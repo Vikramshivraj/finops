@@ -10,6 +10,7 @@ deregistration delay) + `docker stop` through SSM, which sends SIGTERM: the app 
 polling SQS and finishes the jobs in hand. Unfinished jobs return to the queue.
 Every step is logged as one JSON line, which is the evidence for the chaos test.
 """
+
 import json
 import logging
 import os
