@@ -63,3 +63,5 @@ Thumbs.db
 *.docx
 
 *.tfvars
+# Large local policy binaries should be installed, not committed
+/opa.exe
