@@ -76,7 +76,7 @@ cost, and `cost_report.py` turns it into `cost_savings.csv`.
 
 ## Runbook
 
-Commands are for **Git Bash** on Windows (or any bash). Account `073639462496`, region `eu-west-1`.
+Commands are for **Git Bash** on Windows (or any bash). Account `<your-account-id>`, region `eu-west-1`.
 
 ### 0. One-time setup on your machine
 
@@ -102,8 +102,8 @@ pip install -r finops-app/requirements.txt -r app/requirements-dev.txt
 pytest -q app/tests                    # API + Spot guard unit tests
 opa test policies -v                   # 16 budget/tag/mixed-instances policy tests
 python finops/validate_inputs.py       # the 6 dataset inputs vs the Dataset Building Document
-docker compose up --build -d --wait    # app :8080 (On-Demand), "Spot" app :8081, Postgres
-curl -X POST localhost:8081/process -H 'Content-Type: application/json' -d '{"request_type":"CreateOrder"}'   # -> 503
+docker compose up --build -d --wait    # app :8081 (On-Demand), "Spot" app :8082, Postgres
+curl -X POST localhost:8082/process -H 'Content-Type: application/json' -d '{"request_type":"CreateOrder"}'   # -> 503
 docker compose down
 ```
 
@@ -111,8 +111,8 @@ docker compose down
 
 ```bash
 terraform -chdir=terraform init
-terraform -chdir=terraform apply -var aws_account_id=073639462496 -var owner=pranav6657@gmail.com \
-  -var cost_center=1001 -var github_repo=daydoom613/bnp_hack_static
+terraform -chdir=terraform apply -var aws_account_id=<your-account-id> -var owner=<your-email> \
+  -var cost_center=1001 -var github_repo=<your-github-repo>
 terraform -chdir=terraform output -raw backend_hcl > terraform/environments/dev/backend.hcl
 ```
 

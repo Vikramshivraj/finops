@@ -28,19 +28,22 @@ def burn(ms):
 @lru_cache(maxsize=1)
 def _sqs():
     import boto3
-
-    return boto3.client("sqs", region_name=config.AWS_REGION)
-
+    from botocore.config import Config
+    return boto3.client("sqs", region_name=config.AWS_REGION, config=Config(max_pool_connections=50))
 
 def enqueue(job):
     """Send a job, or do the work inline when there is no queue (local runs). Returns the message id."""
     if not config.QUEUE_URL:
         burn(config.JOB_WORK_MS)
         return None
-    response = _sqs().send_message(QueueUrl=config.QUEUE_URL, MessageBody=json.dumps(job))
-    metrics.JOBS_ENQUEUED.inc()
-    return response["MessageId"]
-
+    try:
+        response = _sqs().send_message(QueueUrl=config.QUEUE_URL, MessageBody=json.dumps(job))
+        metrics.JOBS_ENQUEUED.inc()
+        return response["MessageId"]
+    except Exception as exc:
+        log.warning("sqs send failed: %s, falling back to inline", exc)
+        burn(config.JOB_WORK_MS)
+        return None
 
 class Consumer:
     """Long-polls the queue until stop() is called, then finishes the batch in hand.
@@ -78,7 +81,9 @@ class Consumer:
                     metrics.JOBS_PROCESSED.inc()
                     done.append({"Id": message["MessageId"], "ReceiptHandle": message["ReceiptHandle"]})
                 if done:
-                    sqs.delete_message_batch(QueueUrl=config.QUEUE_URL, Entries=done)
+                    resp = sqs.delete_message_batch(QueueUrl=config.QUEUE_URL, Entries=done)
+                    if resp.get("Failed"):
+                        log.warning("sqs delete failed for some messages: %s", resp["Failed"])
             except Exception as exc:
                 log.warning("consumer error: %s", exc)
                 self._stop.wait(5)

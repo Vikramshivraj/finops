@@ -216,7 +216,8 @@ class WorkloadIn(BaseModel):
 
 @app.post("/process")
 def process(request: Request, workload: WorkloadIn):
-    request_type = workload.request_type or request.headers.get("X-Request-Type") or "GetCatalog"
+    raw_type = workload.request_type or request.headers.get("X-Request-Type") or "GetCatalog"
+    request_type = raw_type if priority.TABLE.get(str(raw_type).strip().lower()) else "Unknown"
     critical = guard(request, request_type, workload.critical)
 
     if request_type == "CreateOrder":
@@ -232,9 +233,13 @@ def process(request: Request, workload: WorkloadIn):
                        "item_id": item["id"] if item else None})
 
     if not critical:
-        # Non-critical: answer from the catalog now, hand the heavy part to the Spot-heavy workers.
         jobs.burn(config.NONCRITICAL_WORK_MS)
         items = STORE.list_items(10, random.randint(0, 90))
+        if config.ROLE == "worker":
+            # Worker node: process inline and return 200 (job done here).
+            return served({"status": "processed", "request_type": request_type, "critical": critical,
+                           "items": len(items), "job_id": None})
+        # Web node: always return 202 accepted — enqueue to SQS if configured, else burn inline.
         job_id = jobs.enqueue({"request_type": request_type, "enqueued_at": time.time()})
         return JSONResponse(served({"status": "accepted", "request_type": request_type, "critical": critical,
                                     "items": len(items), "job_id": job_id}), status_code=202)

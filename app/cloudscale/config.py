@@ -3,7 +3,12 @@ import os
 
 
 def _float(name, default):
-    return float(os.environ.get(name, default))
+    val = os.environ.get(name, str(default))
+    return float(val) if val else float(default)
+
+def _int(name, default):
+    val = os.environ.get(name, str(default))
+    return int(val) if val else int(default)
 
 
 # web    = On-Demand API hosts (Web ASG). Serves every request type.
@@ -16,16 +21,16 @@ AWS_REGION = os.environ.get("AWS_REGION", "eu-west-1")
 # Database. DB_SECRET_ARN is the RDS-managed secret; the password is never in env or code.
 # Without DB_HOST the app keeps data in memory (unit tests, quick local runs).
 DB_HOST = os.environ.get("DB_HOST", "")
-DB_PORT = int(os.environ.get("DB_PORT", "5432"))
+DB_PORT = _int("DB_PORT", "5432")
 DB_NAME = os.environ.get("DB_NAME", "finops")
 DB_SECRET_ARN = os.environ.get("DB_SECRET_ARN", "")
 DB_USER = os.environ.get("DB_USER", "finops_admin")  # only used when DB_SECRET_ARN is empty (docker-compose)
 DB_SSLMODE = os.environ.get("DB_SSLMODE", "require")
-DB_POOL_MAX = int(os.environ.get("DB_POOL_MAX", "4"))
+DB_POOL_MAX = _int("DB_POOL_MAX", "4")
 
 # Non-critical background work goes here; empty = process it inline.
 QUEUE_URL = os.environ.get("QUEUE_URL", "")
-CONSUMER_THREADS = int(os.environ.get("CONSUMER_THREADS", "2"))
+CONSUMER_THREADS = _int("CONSUMER_THREADS", "2")
 
 # data/service_priority.xlsx, baked into the image (sheet "Priority").
 PRIORITY_FILE = os.environ.get("PRIORITY_FILE", "/srv/data/service_priority.xlsx")

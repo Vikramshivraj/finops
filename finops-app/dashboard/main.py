@@ -2,16 +2,24 @@ import json
 import os
 from pathlib import Path
 
-import boto3
 import pandas as pd
-from dotenv import load_dotenv
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 
-load_dotenv()
+# Plain .env loader (avoids python-dotenv blocking on Windows)
+def _load_dotenv(path=".env"):
+    p = Path(path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+_load_dotenv()
 
 
 app = FastAPI(
@@ -42,43 +50,46 @@ WORKER_ASG_NAME = os.getenv(
     ""
 )
 
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 BUDGET_FILE = Path(
     os.getenv(
         "BUDGET_FILE",
-        "../data/budget_cap.txt"
+        str(BASE_DIR / "data/budget_cap.txt")
     )
 )
 
 BASELINE_FILE = Path(
     os.getenv(
         "BASELINE_COST_FILE",
-        "../data/baseline_cost.json"
+        str(BASE_DIR / "data/baseline_cost.json")
     )
 )
 
 OPTIMIZED_FILE = Path(
     os.getenv(
         "OPTIMIZED_COST_FILE",
-        "../reports/latest/optimized_cost.json"
+        str(BASE_DIR / "reports/latest/optimized_cost.json")
     )
 )
 
 TRAFFIC_REPORT = Path(
-    "reports/traffic_report.csv"
+    str(BASE_DIR / "finops-app/reports/traffic_report.csv")
 )
 
 
 app.mount(
     "/static",
     StaticFiles(
-        directory="dashboard/static"
+        directory=str(Path(__file__).resolve().parent / "static")
     ),
     name="static"
 )
 
 
 def read_budget():
-
+    if not BUDGET_FILE.exists():
+        return 0
     with open(
         BUDGET_FILE,
         "r",
@@ -99,7 +110,8 @@ def read_budget():
 
 
 def read_baseline_cost():
-
+    if not BASELINE_FILE.exists():
+        return 0
     with open(
         BASELINE_FILE,
         encoding="utf-8"
@@ -184,6 +196,7 @@ def get_asg_count(name):
     if not AWS_ENABLED or not name:
         return None
 
+    import boto3  # lazy import — only needed when AWS_ENABLED=true
     client = boto3.client(
         "autoscaling",
         region_name=AWS_REGION

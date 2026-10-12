@@ -7,17 +7,24 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import boto3
 import httpx
 import pandas as pd
-from dotenv import load_dotenv
 
 
 # ============================================================
-# LOAD ENVIRONMENT VARIABLES
+# LOAD ENVIRONMENT VARIABLES  (plain .env reader — no dotenv blocking)
 # ============================================================
 
-load_dotenv()
+def _load_dotenv(path=".env"):
+    p = Path(path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+_load_dotenv()
 
 
 # ============================================================
@@ -1321,6 +1328,7 @@ def upload_reports_to_s3():
 
     try:
 
+        import boto3  # lazy import — only needed when AWS_ENABLED=true
         s3 = boto3.client(
             "s3",
             region_name=

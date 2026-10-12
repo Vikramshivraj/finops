@@ -5,7 +5,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
-    WEB_CONCURRENCY=2 \
+    WEB_CONCURRENCY=1 \
     PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus \
     PRIORITY_FILE=/srv/data/service_priority.xlsx
 

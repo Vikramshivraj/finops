@@ -23,25 +23,29 @@ def load(path=None):
     path = Path(path or config.PRIORITY_FILE)
     if not path.exists():
         log.warning("%s not found, using built-in priorities", path)
-        return dict(DEFAULTS)
+        return {k.lower(): v for k, v in DEFAULTS.items()}
 
     from openpyxl import load_workbook
+    wb = load_workbook(path, read_only=True, data_only=True)
+    try:
+        sheet = wb["Priority"]
+        rows = sheet.iter_rows(values_only=True)
+        header = [str(c).strip().lower() if c is not None else "" for c in next(rows)]
+        col = {name: header.index(name) for name in ("request_type", "priority", "critical")}
 
-    sheet = load_workbook(path, read_only=True, data_only=True)["Priority"]
-    rows = sheet.iter_rows(values_only=True)
-    header = [str(c).strip() if c is not None else "" for c in next(rows)]
-    col = {name: header.index(name) for name in ("request_type", "priority", "critical")}
-
-    table = {}
-    for row in rows:
-        if row[col["request_type"]] is None:
-            continue
-        table[str(row[col["request_type"]]).strip()] = {
-            "priority": int(row[col["priority"]]),
-            "critical": _truthy(row[col["critical"]]),
-        }
-    log.info("loaded %d request types from %s", len(table), path)
-    return table
+        table = {}
+        for row in rows:
+            if row[col["request_type"]] is None:
+                continue
+            req_type = str(row[col["request_type"]]).strip().lower()
+            table[req_type] = {
+                "priority": int(row[col["priority"]]),
+                "critical": _truthy(row[col["critical"]]),
+            }
+        log.info("loaded %d request types from %s", len(table), path)
+        return table
+    finally:
+        wb.close()
 
 
 TABLE = load()
@@ -49,10 +53,14 @@ TABLE = load()
 
 def is_critical(request_type):
     """Unknown request types count as critical: the safe side of the Spot rule."""
-    entry = TABLE.get(request_type)
+    if not request_type:
+        return True
+    entry = TABLE.get(str(request_type).strip().lower())
     return True if entry is None else entry["critical"]
 
 
 def priority_of(request_type):
-    entry = TABLE.get(request_type)
+    if not request_type:
+        return 1
+    entry = TABLE.get(str(request_type).strip().lower())
     return 1 if entry is None else entry["priority"]
