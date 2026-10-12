@@ -196,10 +196,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read image_tag from terraform.tfvars
+      - name: Read image_tag from Terraform variables
         id: meta
         run: |
-          tag=$(sed -nE 's/^[[:space:]]*image_tag[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$ENV_DIR/terraform.tfvars")
+          # Local terraform.tfvars is intentionally gitignored because it contains account-specific values.
+          # CI falls back to the committed example for the image tag.
+          vars_file="$ENV_DIR/terraform.tfvars"
+          if [ ! -f "$vars_file" ]; then
+            vars_file="$ENV_DIR/terraform.tfvars.example"
+          fi
+          test -f "$vars_file" || { echo "::error::No Terraform variables file found"; exit 1; }
+          tag=$(sed -nE 's/^[[:space:]]*image_tag[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$vars_file")
+          if [ -z "$tag" ]; then
+            echo "::error::image_tag is missing from $vars_file"
+            exit 1
+          fi
+          echo "Using image tag: $tag"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Build only (pull request)
